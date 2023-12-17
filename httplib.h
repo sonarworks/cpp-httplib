@@ -1070,9 +1070,14 @@ public:
   Result Post(const std::string &path, const Headers &headers,
               size_t content_length, ContentProvider content_provider,
               const std::string &content_type);
-  Result Post(const std::string &path, const Params &params, const Headers &headers,
-              size_t content_length, ContentProvider content_provider,
-              const std::string &content_type, ContentReceiver content_receiver);
+  Result Post(const std::string &path,
+              const Params &params,
+              const Headers &headers,
+              size_t content_length,
+              ContentProvider content_provider,
+              const std::string &content_type,
+              ResponseHandler response_handler,
+              ContentReceiver content_receiver);
   Result Post(const std::string &path, const Headers &headers,
               ContentProviderWithoutLength content_provider,
               const std::string &content_type);
@@ -1370,6 +1375,7 @@ private:
       ContentProvider content_provider,
       ContentProviderWithoutLength content_provider_without_length,
       const std::string &content_type,
+      ResponseHandler response_handler,
       ContentReceiver content_receiver);
   Result send_with_content_provider(
       const std::string &method, const std::string &path,
@@ -1464,9 +1470,14 @@ public:
   Result Post(const std::string &path, const Headers &headers,
               size_t content_length, ContentProvider content_provider,
               const std::string &content_type);
-  Result Post(const std::string &path, const Params &params, const Headers &headers,
-              size_t content_length, ContentProvider content_provider,
-              const std::string &content_type, ContentReceiver content_receiver);
+  Result Post(const std::string &path,
+              const Params &params,
+              const Headers &headers,
+              size_t content_length,
+              ContentProvider content_provider,
+              const std::string &content_type,
+              ResponseHandler response_handler,
+              ContentReceiver content_receiver);
   Result Post(const std::string &path, const Headers &headers,
               ContentProviderWithoutLength content_provider,
               const std::string &content_type);
@@ -7271,12 +7282,16 @@ inline Result ClientImpl::send_with_content_provider_and_content_receiver(
     ContentProvider content_provider,
     ContentProviderWithoutLength content_provider_without_length,
     const std::string &content_type,
+    ResponseHandler response_handler,
     ContentReceiver content_receiver) {
   std::string path_with_query = append_query_params(path, params);
   Request req;
   req.method = method;
   req.headers = headers;
   req.path = path_with_query;
+  if (response_handler) {
+    req.response_handler = std::move(response_handler);
+  }
   if (content_receiver) {
     req.content_receiver = [content_receiver](const char *data, size_t data_length,
                                               uint64_t /*offset*/, uint64_t /*total_length*/) {
@@ -7300,7 +7315,7 @@ inline Result ClientImpl::send_with_content_provider(
     const std::string &content_type) {
   return send_with_content_provider_and_content_receiver(
       method, path, {}, headers, body, content_length, std::move(content_provider),
-      std::move(content_provider_without_length), content_type, nullptr);
+      std::move(content_provider_without_length), content_type, nullptr, nullptr);
 }
 
 inline std::string
@@ -7634,14 +7649,18 @@ inline Result ClientImpl::Post(const std::string &path, const Headers &headers,
                                     nullptr, content_type);
 }
 
-inline Result ClientImpl::Post(const std::string &path, const Params &params,
-                               const Headers& headers, size_t content_length,
+inline Result ClientImpl::Post(const std::string &path,
+                               const Params &params,
+                               const Headers& headers,
+                               size_t content_length,
                                ContentProvider content_provider,
                                const std::string &content_type,
+                               ResponseHandler response_handler,
                                ContentReceiver content_receiver) {
   return send_with_content_provider_and_content_receiver("POST", path, params, headers,
                                     nullptr, content_length, std::move(content_provider),
-                                    nullptr, content_type, std::move(content_receiver));
+                                    nullptr, content_type, std::move(response_handler),
+                                    std::move(content_receiver));
 }
 
 inline Result ClientImpl::Post(const std::string &path, const Headers &headers,
@@ -9002,13 +9021,16 @@ inline Result Client::Post(const std::string &path, const Headers &headers,
   return cli_->Post(path, headers, content_length, std::move(content_provider),
                     content_type);
 }
-inline Result Client::Post(const std::string &path, const Params &params,
-                           const Headers& headers, size_t content_length,
+inline Result Client::Post(const std::string &path,
+                           const Params &params,
+                           const Headers& headers,
+                           size_t content_length,
                            ContentProvider content_provider,
                            const std::string &content_type,
+                           ResponseHandler response_handler,
                            ContentReceiver content_receiver) {
     return cli_->Post(path, params, headers, content_length, std::move(content_provider),
-                      content_type, std::move(content_receiver));
+                      content_type, std::move(response_handler), std::move(content_receiver));
 }
 inline Result Client::Post(const std::string &path, const Headers &headers,
                            ContentProviderWithoutLength content_provider,
